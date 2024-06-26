@@ -13,12 +13,15 @@ pragma solidity ^0.8.16;
 
 import {Secp256k1, SecretKey, PublicKey} from "../Secp256k1.sol";
 
+// TODO: Rename to (s, R)
+// TODO: Also redefine to r = PublicKey
+// TODO: Need SignatureCompressed type?
 /**
  * @notice Signature is a Schnorr signature
  */
 struct Signature {
-    bytes32 signature;
-    address commitment;
+    bytes32 signature; // s
+    address commitment; // r
 }
 
 /**
@@ -166,4 +169,32 @@ library Schnorr {
     // (De)Serialization
     //
     // TODO: Schnorr Serde defined via BIP-340.
+
+    function toCompressedEncoded(Signature memory sig) internal pure returns (bytes memory) {
+        return abi.encodePacked(sig.signature, sig.commitment);
+    }
+
+    function signatureFromCompressedEncoded(bytes memory blob)
+        internal
+        pure
+        returns (Signature memory)
+    {
+        if (blob.length != 96) {
+            revert("LengthInvalid()");
+        }
+
+        bytes32 s;
+        uint rx;
+        uint ry;
+        assembly ("memory-safe") {
+            s := mload(add(blob, 0x20))
+            rx := mload(add(blob, 0x40))
+            ry := mload(add(blob, 0x60))
+        }
+
+        PublicKey memory r = PublicKey(rx, ry);
+
+        return Signature(s, r.toAddress());
+    }
+
 }
