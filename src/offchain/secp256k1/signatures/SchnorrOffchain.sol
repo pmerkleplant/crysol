@@ -25,7 +25,8 @@ import {
 
 import {
     Schnorr,
-    Signature
+    Signature,
+    SignatureCompressed
 } from "../../../onchain/secp256k1/signatures/Schnorr.sol";
 
 /**
@@ -128,7 +129,8 @@ library SchnorrOffchain {
     }
 
     /// @dev Returns a Schnorr signature signed by secret key `sk` singing
-    ///      message `message`'s keccak256 digest as Ethereum Signed Message.
+    ///      message `message`'s keccak256 digest as Ethereum Schnorr Signed
+    ///      Message.
     ///
     /// @dev For more info regarding Ethereum Signed Messages, see {Message.sol}.
     ///
@@ -136,18 +138,18 @@ library SchnorrOffchain {
     ///        Secret key invalid
     ///
     /// @custom:vm sign(SecretKey,bytes32)
-    function signEthereumSignedMessageHash(SecretKey sk, bytes memory message)
+    function signEthereumSchnorrSignedMessageHash(SecretKey sk, bytes memory message)
         internal
         vmed
         returns (Signature memory)
     {
-        bytes32 digest = Message.deriveEthereumSignedMessageHash(message);
+        bytes32 digest = Message.deriveEthereumSchnorrSignedMessageHash(message);
 
         return sk.sign(digest);
     }
 
     /// @dev Returns a Schnorr signature signed by secret key `sk` singing
-    ///      hash digest `digest` as Ethereum Signed Message.
+    ///      hash digest `digest` as Ethereum Schnorr Signed Message.
     ///
     /// @dev For more info regarding Ethereum Signed Messages, see {Message.sol}.
     ///
@@ -155,12 +157,12 @@ library SchnorrOffchain {
     ///        Secret key invalid
     ///
     /// @custom:vm sign(SecretKey,bytes32)
-    function signEthereumSignedMessageHash(SecretKey sk, bytes32 digest)
+    function signEthereumSchnorrSignedMessageHash(SecretKey sk, bytes32 digest)
         internal
         vmed
         returns (Signature memory)
     {
-        bytes32 digest2 = Message.deriveEthereumSignedMessageHash(digest);
+        bytes32 digest2 = Message.deriveEthereumSchnorrSignedMessageHash(digest);
 
         return sk.sign(digest2);
     }
@@ -168,7 +170,7 @@ library SchnorrOffchain {
     //--------------------------------------------------------------------------
     // Utils
 
-    /// @dev Returns a string representation of signature `sig`.
+    /// @dev Returns a string representation of Schnorr signature `sig`.
     ///
     /// @custom:vm vm.toString(uint)
     function toString(Signature memory sig)
@@ -179,8 +181,27 @@ library SchnorrOffchain {
     {
         // forgefmt: disable-start
         string memory str = "Schnorr::Signature({";
-        str = string.concat(str, " signature: ", vm.toString(sig.signature), ",");
-        str = string.concat(str, " commitment: ", vm.toString(sig.commitment));
+        str = string.concat(str, " s: ", vm.toString(sig.s), ",");
+        str = string.concat(str, " r: ", sig.r.toString());
+        str = string.concat(str, " })");
+        return str;
+        // forgefmt: disable-end
+    }
+
+    /// @dev Returns a string representation of compressed Schnorr signature
+    ///      `sig`.
+    ///
+    /// @custom:vm vm.toString(uint)
+    function toString(Signature memory sig)
+        internal
+        view
+        vmed
+        returns (string memory)
+    {
+        // forgefmt: disable-start
+        string memory str = "Schnorr::CompressedSignature({";
+        str = string.concat(str, " s: ", vm.toString(sig.s), ",");
+        str = string.concat(str, " r: ", vm.toString(sig.rAddr));
         str = string.concat(str, " })");
         return str;
         // forgefmt: disable-end
