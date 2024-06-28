@@ -182,6 +182,8 @@ library ECDSA {
     //--------------------------------------------------------------------------
     // (De)Serialization
 
+    // TODO: Revert if malleable!
+
     /// @dev Decodes ECDSA signature from ABI-encoded bytes `blob`.
     ///
     /// @dev Reverts if:

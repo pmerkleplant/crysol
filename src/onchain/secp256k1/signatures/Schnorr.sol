@@ -55,8 +55,8 @@ library Schnorr {
     ///
     /// @dev Reverts if:
     ///        Public key invalid
-    ///      ∨ Schnorr signature malleable
     ///      ∨ Schnorr signature trivial
+    ///      ∨ Schnorr signature malleable
     function verify(
         PublicKey memory pk,
         bytes memory message,

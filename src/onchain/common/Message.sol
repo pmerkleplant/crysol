@@ -68,4 +68,38 @@ library Message {
         }
         return ethMessageHash;
     }
+
+    // ----- Schnorr EIP message hashes -----
+
+    function deriveEthereumSchnorrSignedMessageHash(bytes memory message)
+        internal
+        pure
+        returns (bytes32)
+    {
+        bytes32 digest;
+        assembly ("memory-safe") {
+            let len := mload(message)
+            let offset := add(message, 0x20)
+
+            digest := keccak256(offset, len)
+        }
+
+        return deriveEthereumSchnorrSignedMessageHash(digest);
+    }
+
+    function deriveEthereumSchnorrSignedMessageHash(bytes32 digest)
+        internal
+        pure
+        returns (bytes32)
+    {
+        bytes32 ethSchnorrMessageHash;
+        assembly ("memory-safe") {
+            // Note that the prefix's length is 0x24, leading to a total length
+            // of 0x24 + 0x20 = 0x44.
+            mstore(0x00, "\x19Ethereum Schnorr Signed Message:\n32")
+            mstore(0x24, digest)
+            ethSchnorrMessageHash := keccak256(0x00, 0x44)
+        }
+        return ethSchnorrMessageHash;
+    }
 }
