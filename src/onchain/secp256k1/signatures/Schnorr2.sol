@@ -117,6 +117,9 @@ library Schnorr2 {
         return sigCompressed;
     }
 
+    // TODO: Should define EthereumSignedSchnorrMessage? Need extra tag to
+    //       prevent signing same message twice.
+
     //--------------------------------------------------------------------------
     // (De)Serialization
 
