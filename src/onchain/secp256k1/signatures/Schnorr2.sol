@@ -14,7 +14,7 @@ pragma solidity ^0.8.16;
 import {Secp256k1, SecretKey, PublicKey} from "../Secp256k1.sol";
 
 /**
- * @notice Signature is an [EIP-XXX] Schnorr signature
+ * @notice Signature is an [ERC-XXX] Schnorr signature
  */
 struct Signature {
     bytes32 s;
@@ -22,7 +22,7 @@ struct Signature {
 }
 
 /**
- * @notice SignatureCompressed is an [EIP-XXX] compressed Schnorr signature
+ * @notice SignatureCompressed is an [ERC-XXX] compressed Schnorr signature
  */
 struct SignatureCompressed {
     bytes32 s;
@@ -34,18 +34,18 @@ struct SignatureCompressed {
  *
  * @notice Provides Schnorr signature functionality
  *
- * @dev Provides an Schnorr signature implementation as defined in [EIP-XXX].
+ * @dev Provides an Schnorr signature implementation as defined in [ERC-XXX].
  *
  * @dev Note about Ethereum Schnorr Signed Messages
  *
- *      Note that [EIP-XXX] defines a message tag for Schnorr signed messages to
+ *      Note that [ERC-XXX] defines a message tag for Schnorr signed messages to
  *      prevent digests created in one context to be reinterpreted in another
  *      context.
  *
- *      For more information, see [EIP-XXX] and {Message.sol}.
+ *      For more information, see [ERC-XXX] and {Message.sol}.
  *
  * @custom:references
- *      - [EIP-XXX]: ...
+ *      - [ERC-XXX]: ...
  *
  * @author verklegarden
  * @custom:repository github.com/verklegarden/crysol
@@ -88,11 +88,11 @@ library Schnorr2 {
     /// @dev Reverts if:
     ///        Public key invalid
     ///      ∨ Schnorr signature insane
-    function verify(
-        PublicKey memory pk,
-        bytes32 digest,
-        Signature memory sig
-    ) internal pure returns (bool) {
+    function verify(PublicKey memory pk, bytes32 digest, Signature memory sig)
+        internal
+        pure
+        returns (bool)
+    {
         // Note that checking whether signature's r value is a valid public key
         // is waived. Exploiting this behaviour would require knowledge of a
         // preimage non-equal to pk for the signer's Ethereum address.
@@ -139,9 +139,7 @@ library Schnorr2 {
         // Construct challenge = H(Pkₓ ‖ Pkₚ ‖ m ‖ Rₑ) (mod Q)
         uint challenge = uint(
             keccak256(
-                abi.encodePacked(
-                    pk.x, uint8(pk.yParity()), digest, sig.rAddr
-                )
+                abi.encodePacked(pk.x, uint8(pk.yParity()), digest, sig.rAddr)
             )
         ) % Secp256k1.Q;
 
@@ -153,9 +151,8 @@ library Schnorr2 {
         // computation, i.e. the subtrahend is guaranteed to be less than Q.
         bytes32 ecrecover_msgHash;
         unchecked {
-            ecrecover_msgHash = bytes32(
-                Secp256k1.Q - mulmod(uint(sig.s), pk.x, Secp256k1.Q)
-            );
+            ecrecover_msgHash =
+                bytes32(Secp256k1.Q - mulmod(uint(sig.s), pk.x, Secp256k1.Q));
         }
 
         // Compute ecrecover_v = Pkₚ + 27
@@ -215,8 +212,13 @@ library Schnorr2 {
     ///      - Schnorr signature's s value is zero
     ///      - Schnorr signature's s value is not a field element
     ///      - Schnorr signature's rAddr value is zero
-    function isSane(SignatureCompressed memory sig) internal pure returns (bool) {
-        if (sig.s == 0 || uint(sig.s) >= Secp256k1.Q || sig.rAddr == address(0)) {
+    function isSane(SignatureCompressed memory sig)
+        internal
+        pure
+        returns (bool)
+    {
+        if (sig.s == 0 || uint(sig.s) >= Secp256k1.Q || sig.rAddr == address(0))
+        {
             return false;
         }
 
@@ -230,7 +232,11 @@ library Schnorr2 {
     //--------------------------------------------------------------------------
     // Type Conversions
 
-    function intoCompressed(Signature memory sig) internal pure returns (SignatureCompressed memory) {
+    function intoCompressed(Signature memory sig)
+        internal
+        pure
+        returns (SignatureCompressed memory)
+    {
         SignatureCompressed memory sigCompressed;
 
         address rAddr = sig.r.toAddress();
@@ -247,7 +253,11 @@ library Schnorr2 {
         return sigCompressed;
     }
 
-    function toCompressed(Signature memory sig) internal pure returns (SignatureCompressed memory) {
+    function toCompressed(Signature memory sig)
+        internal
+        pure
+        returns (SignatureCompressed memory)
+    {
         address rAddr = sig.r.toAddress();
         // assert(rAddr != address(0));
 
@@ -268,7 +278,11 @@ library Schnorr2 {
     ///
     /// @dev Expects 96 bytes encoding:
     ///         [32 bytes s value][64 bytes r public key]
-    function signatureFromEncoded(bytes memory blob) internal pure returns (Signature memory) {
+    function signatureFromEncoded(bytes memory blob)
+        internal
+        pure
+        returns (Signature memory)
+    {
         if (blob.length != 96) {
             revert("LengthInvalid()");
         }
@@ -291,14 +305,18 @@ library Schnorr2 {
         return sig;
     }
 
-    /// @dev Encodes Schnorr signature `sig` as [EIP-XXX] encoded bytes.
+    /// @dev Encodes Schnorr signature `sig` as [ERC-XXX] encoded bytes.
     ///
     /// @dev Reverts if:
     ///        Schnorr signature insane
     ///
     /// @dev Provides 96 bytes encoding:
     ///         [32 bytes s value][64 bytes r public key]
-    function toEncoded(Signature memory sig) internal pure returns (bytes memory) {
+    function toEncoded(Signature memory sig)
+        internal
+        pure
+        returns (bytes memory)
+    {
         if (!sig.isSane()) {
             revert("SignatureInsane()");
         }
@@ -306,7 +324,7 @@ library Schnorr2 {
         return abi.encodePacked(sig.s, sig.r.x, sig.r.y);
     }
 
-    /// @dev Encodes Schnorr signature `sig` as [EIP-XXX] compressed encoded
+    /// @dev Encodes Schnorr signature `sig` as [ERC-XXX] compressed encoded
     ///      bytes.
     ///
     /// @dev Reverts if:
@@ -315,12 +333,16 @@ library Schnorr2 {
     /// @dev Provides 52 bytes encoding:
     ///         [32 bytes s value][20 bytes r's address]
     ///
-    ///      See [EIP-XXX].
-    function toCompressedEncoded(Signature memory sig) internal pure returns (bytes memory) {
+    ///      See [ERC-XXX].
+    function toCompressedEncoded(Signature memory sig)
+        internal
+        pure
+        returns (bytes memory)
+    {
         return sig.toCompressed().toCompressedEncoded();
     }
 
-    /// @dev Decodes compressed Schnorr signature from [EIP-XXX] compressed
+    /// @dev Decodes compressed Schnorr signature from [ERC-XXX] compressed
     ///      encoded bytes `blob`.
     ///
     /// @dev Reverts if:
@@ -329,8 +351,12 @@ library Schnorr2 {
     /// @dev Provides 52 bytes encoding:
     ///         [32 bytes s value][20 bytes r's address]
     ///
-    ///      See [EIP-XXX].
-    function fromCompressedEncoded(bytes memory blob) internal pure returns (SignatureCompressed memory) {
+    ///      See [ERC-XXX].
+    function fromCompressedEncoded(bytes memory blob)
+        internal
+        pure
+        returns (SignatureCompressed memory)
+    {
         if (blob.length != 52) {
             revert("LengthInvalid()");
         }
@@ -351,7 +377,7 @@ library Schnorr2 {
         return sig;
     }
 
-    /// @dev Encodes compact Schnorr signature `sig` as [EIP-XXX] compact
+    /// @dev Encodes compact Schnorr signature `sig` as [ERC-XXX] compact
     ///      encoded bytes.
     ///
     /// @dev Reverts if:
@@ -360,8 +386,12 @@ library Schnorr2 {
     /// @dev Provides 52 bytes encoding:
     ///         [32 bytes s value][20 bytes r's address]
     ///
-    ///      See [EIP-XXX].
-    function toCompressedEncoded(SignatureCompressed memory sig) internal pure returns (bytes memory) {
+    ///      See [ERC-XXX].
+    function toCompressedEncoded(SignatureCompressed memory sig)
+        internal
+        pure
+        returns (bytes memory)
+    {
         if (!sig.isSane()) {
             revert("SignatureInsane()");
         }

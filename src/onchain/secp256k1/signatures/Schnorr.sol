@@ -170,7 +170,11 @@ library Schnorr {
     //
     // TODO: Schnorr Serde defined via BIP-340.
 
-    function toCompressedEncoded(Signature memory sig) internal pure returns (bytes memory) {
+    function toCompressedEncoded(Signature memory sig)
+        internal
+        pure
+        returns (bytes memory)
+    {
         return abi.encodePacked(sig.signature, sig.commitment);
     }
 
@@ -196,5 +200,4 @@ library Schnorr {
 
         return Signature(s, r.toAddress());
     }
-
 }

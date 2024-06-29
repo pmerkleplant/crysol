@@ -112,6 +112,8 @@ library Message {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encodePacked("\x19Ethereum Schnorr Signed Message:\n32", digest));
+        return keccak256(
+            abi.encodePacked("\x19Ethereum Schnorr Signed Message:\n32", digest)
+        );
     }
 }
