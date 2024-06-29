@@ -37,6 +37,9 @@ library Nonce {
         return nonce;
     }
 
+    // TODO: Better docs that pk MUST be signer's public key, which is not
+    //       necessarily the same as sk's public key.
+
     /// @dev Derives a deterministic non-zero nonce from secret key `sk`,
     ///      public key `pk`, message `message`, and salt `salt.
     ///

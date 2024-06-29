@@ -24,26 +24,28 @@ import {
 } from "../../../onchain/secp256k1/Secp256k1.sol";
 
 import {
-    Schnorr,
-    Signature
-} from "../../../onchain/secp256k1/signatures/Schnorr.sol";
+    Schnorr2,
+    Signature,
+    SignatureCompressed
+} from "../../../onchain/secp256k1/signatures/Schnorr2.sol";
 
 /**
  * @title SchnorrOffchain
  *
  * @notice Provides offchain Schnorr signature functionality
  *
- * @custom:docs docs/signatures/Schnorr.md
+ * @custom:references
+ *      - [ERC-XXX]: ...
  *
  * @author verklegarden
  * @custom:repository github.com/verklegarden/crysol
  */
-library SchnorrOffchain {
+library SchnorrOffchain2 {
     using Secp256k1Offchain for SecretKey;
     using Secp256k1 for SecretKey;
     using Secp256k1 for PublicKey;
 
-    using SchnorrOffchain for SecretKey;
+    using SchnorrOffchain2 for SecretKey;
 
     // ~~~~~~~ Prelude ~~~~~~~
     // forgefmt: disable-start
@@ -54,9 +56,6 @@ library SchnorrOffchain {
     }
     // forgefmt: disable-end
     // ~~~~~~~~~~~~~~~~~~~~~~~
-
-    //--------------------------------------------------------------------------
-    // Signature Creation
 
     /// @dev Returns a Schnorr signature signed by secret key `sk` signing
     ///      message `message`.
@@ -81,7 +80,7 @@ library SchnorrOffchain {
     /// @dev Reverts if:
     ///        Secret key invalid
     ///
-    /// @custom:vm curves/Secp256k1::toPublicKey(SecretKey)(PublicKey)
+    /// @custom:vm secp256k1::toPublicKey(SecretKey)(PublicKey)
     function sign(SecretKey sk, bytes32 digest)
         internal
         vmed
@@ -90,48 +89,41 @@ library SchnorrOffchain {
         // Note that public key derivation fails if secret key is invalid.
         PublicKey memory pk = sk.toPublicKey();
 
-        // Derive deterministic nonce ∊ [1, Q).
+        // Derive deterministic nonce k ∊ [1, Q).
         //
         // Note that modulo bias is acceptable on secp256k1.
-        uint nonce =
+        uint k =
             Nonce.deriveFrom(sk.asUint(), pk.toBytes(), digest) % Secp256k1.Q;
         // assert(nonce != 0);
 
-        // Compute nonce's public key.
-        PublicKey memory noncePk =
-            Secp256k1.secretKeyFromUint(nonce).toPublicKey();
+        // Compute nonce's public key R.
+        PublicKey memory r = Secp256k1.secretKeyFromUint(k).toPublicKey();
 
-        // Derive commitment from nonce's public key.
-        address commitment = noncePk.toAddress();
-
-        // Construct challenge = H(Pkₓ ‖ Pkₚ ‖ m ‖ Rₑ) (mod Q)
-        bytes32 challenge = bytes32(
+        // Construct challenge e = H(Pkₓ ‖ Pkₚ ‖ m ‖ Rₑ) (mod Q).
+        bytes32 e = bytes32(
             uint(
                 keccak256(
                     abi.encodePacked(
-                        pk.x, uint8(pk.yParity()), digest, commitment
+                        pk.x, uint8(pk.yParity()), digest, r.toAddress()
                     )
                 )
             ) % Secp256k1.Q
         );
 
-        // Compute signature = k + (e * sk) (mod Q)
-        bytes32 signature = bytes32(
-            addmod(
-                nonce,
-                mulmod(uint(challenge), sk.asUint(), Secp256k1.Q),
-                Secp256k1.Q
-            )
+        // Compute s = k + (e * sk) (mod Q).
+        bytes32 s = bytes32(
+            addmod(k, mulmod(uint(e), sk.asUint(), Secp256k1.Q), Secp256k1.Q)
         );
 
-        return Signature(signature, commitment);
+        return Signature(s, r);
     }
 
     /// @dev Returns a Schnorr signature signed by secret key `sk` singing
     ///      message `message`'s keccak256 digest as Ethereum Schnorr Signed
     ///      Message.
     ///
-    /// @dev For more info regarding Ethereum Signed Messages, see {Message.sol}.
+    /// @dev For more info regarding Ethereum Schnorr Signed Messages, see
+    ///      [ERC-XXX] and {Message.sol}.
     ///
     /// @dev Reverts if:
     ///        Secret key invalid
@@ -149,7 +141,8 @@ library SchnorrOffchain {
     /// @dev Returns a Schnorr signature signed by secret key `sk` singing
     ///      hash digest `digest` as Ethereum Schnorr Signed Message.
     ///
-    /// @dev For more info regarding Ethereum Signed Messages, see {Message.sol}.
+    /// @dev For more info regarding Ethereum Schnorr Signed Messages, see
+    ///      [ERC-XXX] and {Message.sol}.
     ///
     /// @dev Reverts if:
     ///        Secret key invalid
@@ -163,45 +156,5 @@ library SchnorrOffchain {
         bytes32 digest2 = Message.deriveEthereumSchnorrSignedMessageHash(digest);
 
         return sk.sign(digest2);
-    }
-
-    //--------------------------------------------------------------------------
-    // Utils
-
-    /// @dev Returns a string representation of Schnorr signature `sig`.
-    ///
-    /// @custom:vm vm.toString(uint)
-    function toString(Signature memory sig)
-        internal
-        view
-        vmed
-        returns (string memory)
-    {
-        // forgefmt: disable-start
-        string memory str = "Schnorr::Signature({";
-        str = string.concat(str, " s: ", vm.toString(sig.s), ",");
-        str = string.concat(str, " r: ", sig.r.toString());
-        str = string.concat(str, " })");
-        return str;
-        // forgefmt: disable-end
-    }
-
-    /// @dev Returns a string representation of compressed Schnorr signature
-    ///      `sig`.
-    ///
-    /// @custom:vm vm.toString(uint)
-    function toString(Signature memory sig)
-        internal
-        view
-        vmed
-        returns (string memory)
-    {
-        // forgefmt: disable-start
-        string memory str = "Schnorr::CompressedSignature({";
-        str = string.concat(str, " s: ", vm.toString(sig.s), ",");
-        str = string.concat(str, " r: ", vm.toString(sig.rAddr));
-        str = string.concat(str, " })");
-        return str;
-        // forgefmt: disable-end
     }
 }
