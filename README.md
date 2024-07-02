@@ -17,13 +17,17 @@ src
 ├─ onchain
 │  ├─ common
 │  │  ├─ Message - "Functionality for constructing Ethereum Signed Message Hashes"
-│  │  └─ Nonce - "Deterministic nonce derivation"
-│  └─ secp256k1
-│     ├─ Secp256k1 - "Cryptography-related functionality for the secp256k1 elliptic curve"
-│     ├─ Secp256k1Arithmetic — "Arithmetic-related functionality for the secp256k1 elliptic curve"
-│     └─ signatures
-│        ├─ ECDSA — "ECDSA signature functionality for secp256k1"
-│        └─ Schnorr — "Schnorr signature functionality for secp256k1"
+│  │  ├─ Nonce - "Deterministic nonce derivation"
+│  │  └─ ModularArithmetic - "Provides modular arithmetic functionality"
+│  ├─ secp256k1
+│  │  ├─ Secp256k1 - "Cryptography-related functionality for the secp256k1 elliptic curve"
+│  │  ├─ Secp256k1Arithmetic — "Arithmetic-related functionality for the secp256k1 elliptic curve"
+│  │  └─ signatures
+│  │     ├─ ECDSA — "ECDSA signature functionality for secp256k1"
+│  │     └─ Schnorr — "Schnorr signature functionality for secp256k1"
+│  └─ secp256r1
+│     ├─ Secp256r1 - "Cryptography-related functionality for the secp256r1 elliptic curve"
+│     └─ Secp256r1Arithmetic — "Arithmetic-related functionality for the secp256r1 elliptic curve"
 ├─ offchain
 │  ├─ common
 │  │  └─ RandomOffchain - "Access to cryptographically secure randomness"
@@ -89,5 +93,5 @@ We **do not give any warranties** and **will not be liable** for any loss incurr
 [tests-shield]: https://github.com/verklegarden/crysol/actions/workflows/unit-tests.yml/badge.svg
 [tests-shield-url]: https://github.com/verklegarden/crysol/actions/workflows/unit-tests.yml
 [license-shield]: https://img.shields.io/badge/license-Apache2.0/MIT-blue.svg
-[solidity-shield]: https://img.shields.io/badge/solidity-%3E=0.8.16%20%3C=0.8.24-aa6746
+[solidity-shield]: https://img.shields.io/badge/solidity-%3E=0.8.16%20%3C=0.8.26-aa6746
 [solidity-shield-url]: https://github.com/verklegarden/crysol/actions/workflows/solc-version-tests.yml

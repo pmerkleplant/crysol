@@ -39,9 +39,9 @@ struct ProjectivePoint {
 }
 
 /**
- * @title Secp256k1Arithmetic
+ * @title Secp256r1Arithmetic
  *
- * @notice Provides common arithmetic-related functionality for the secp256k1
+ * @notice Provides common arithmetic-related functionality for the secp256r1
  *         elliptic curve
  *
  * @custom:references
@@ -49,16 +49,13 @@ struct ProjectivePoint {
  *      - [SEC-2 v2]: https://www.secg.org/sec2-v2.pdf
  *      - [Yellow Paper]: https://github.com/ethereum/yellowpaper
  *      - [Renes-Costello-Batina 2015]: https://eprint.iacr.org/2015/1060.pdf
- *      - [Dubois 2023]: https://eprint.iacr.org/2023/939.pdf
- *      - [Vitalik 2018]: https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384
  *
  * @author verklegarden
  * @custom:repository github.com/verklegarden/crysol
- * @author Inspired by Chronicle Protocol's Scribe (https://github.com/chronicleprotocol/scribe)
  */
-library Secp256k1Arithmetic {
-    using Secp256k1Arithmetic for Point;
-    using Secp256k1Arithmetic for ProjectivePoint;
+library Secp256r1Arithmetic {
+    using Secp256r1Arithmetic for Point;
+    using Secp256r1Arithmetic for ProjectivePoint;
 
     //--------------------------------------------------------------------------
     // Optimization Constants
@@ -66,48 +63,43 @@ library Secp256k1Arithmetic {
     /// @dev Used during projective point addition.
     uint private constant B3 = mulmod(B, 3, P);
 
-    /// @dev Used during modular inversion.
-    uint private constant NEG_2 = addmod(0, P - 2, P);
-
     /// @dev Used during compressed point decoding.
     ///
-    /// @dev Note that the square root of an secp256k1 field element x can be
+    /// @dev Note that the square root of an secp256r1 field element x can be
     ///      computed via x^{SQUARE_ROOT_EXPONENT} (mod p).
     uint private constant SQUARE_ROOT_EXPONENT = (P + 1) / 4;
 
-    /// @dev Used as substitute for `Identity().intoPublicKey().toAddress()`.
-    address private constant IDENTITY_ADDRESS =
-        0x3f17f1962B36e491b30A40b2405849e597Ba5FB5;
-
     //--------------------------------------------------------------------------
-    // Secp256k1 Constants
+    // Secp256r1 Constants
     //
-    // Secp256k1 is a Koblitz curve specified as:
+    // Secp256r1 is a "random" Weierstrass curve specified as:
     //      y² ≡ x³ + ax + b (mod p)
     //
     // where:
-    uint internal constant A = 0;
-    uint internal constant B = 7;
+    uint internal constant A =
+        0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFC;
+    uint internal constant B =
+        0x5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B;
     uint internal constant P =
-        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
+        0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF;
 
     /// @dev The generator G as Point.
     ///
     /// @dev Note that the generator is also called base point.
     function G() internal pure returns (Point memory) {
-        // Gₓ = 79be667e f9dcbbac 55a06295 ce870b07 029bfcdb 2dce28d9 59f2815b 16f81798
-        // Gᵧ = 483ada77 26a3c465 5da4fbfc 0e1108a8 fd17b448 a6855419 9c47d08f fb10d4b8
+        // Gₓ = 6B17D1F2 E12C4247 F8BCE6E5 63A440F2 77037D81 2DEB33A0 F4A13945 D898C296
+        // Gᵧ = 4FE342E2 FE1A7F9B 8EE7EB4A 7C0F9E16 2BCE3357 6B315ECE CBB64068 37BF51F5
         return Point(
-            0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,
-            0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8
+            0x6B17D1F2E12C4247F8BCE6E563A440F277037D812DEB33A0F4A13945D898C296,
+            0x4FE342E2FE1A7F9B8EE7EB4A7C0F9E162BCE33576B315ECECBB6406837BF51F5
         );
     }
 
     /// @dev The order of the group generated via G.
     uint internal constant Q =
-        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
+        0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551;
 
-    // Taken from [SEC-2 v2] section 2.4.1 "Recommended Parameters secp256k1".
+    // Taken from [SEC-2 v2] section 2.4.2 "Recommended Parameters secp256r1".
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
@@ -141,10 +133,16 @@ library Secp256k1Arithmetic {
         }
 
         // Verify whether y² ≡ x³ + ax + b (mod p).
-        // Note that adding a * x can be waived as ∀x: a * x = 0.
         uint left = mulmod(point.y, point.y, P);
-        uint right =
-            addmod(mulmod(point.x, mulmod(point.x, point.x, P), P), B, P);
+        uint right = addmod(
+            addmod(
+                mulmod(point.x, mulmod(point.x, point.x, P), P),
+                mulmod(point.x, A, P),
+                P
+            ),
+            B,
+            P
+        );
 
         return left == right;
     }
@@ -166,44 +164,6 @@ library Secp256k1Arithmetic {
         returns (bool)
     {
         return (point.x == other.x) && (point.y == other.y);
-    }
-
-    /// @dev Returns the product of point `point` and scalar `scalar` as
-    ///      address.
-    ///
-    /// @dev Note that this function is substantially cheaper than
-    ///      `mul(ProjectivePoint,uint)(ProjectivePoint)` with the caveat that
-    ///      only the point's address is returned instead of the point itself.
-    function mulToAddress(Point memory point, uint scalar)
-        internal
-        pure
-        returns (address)
-    {
-        if (scalar >= Q) {
-            revert("ScalarMustBeFelt()");
-        }
-
-        if (scalar == 0 || point.isIdentity()) {
-            return IDENTITY_ADDRESS;
-        }
-
-        // Note that ecrecover can be abused to perform an elliptic curve
-        // multiplication with the caveat that the point's address is returned
-        // instead of the point itself.
-        //
-        // For further details, see [Vitalik 2018] and [SEC-1 v2] section 4.1.6
-        // "Public Key Recovery Operation".
-
-        uint8 v;
-        // Unchecked because point.yParity() ∊ {0, 1} which cannot overflow by
-        // adding 27.
-        unchecked {
-            v = uint8(point.yParity() + 27);
-        }
-        uint r = point.x;
-        uint s = mulmod(r, scalar, Q);
-
-        return ecrecover(0, v, bytes32(r), bytes32(s));
     }
 
     //--------------------------------------------------------------------------
@@ -231,11 +191,27 @@ library Secp256k1Arithmetic {
         return (point.x | point.z == 0);
     }
 
+    /// @dev DO NOT IMPORT!
+    ///
+    /// @dev This is an internal struct to circumvent stack-too-deep errors in
+    ///      ProjectivePoint::add() during non --via-ir compilation.
+    ///
+    /// @dev Tracking issue: TODO: Create issue.
+    struct __addTempVars {
+        uint t0;
+        uint t1;
+        uint t2;
+        uint t3;
+        uint t4;
+        uint t5;
+    }
+
     /// @dev Returns the sum of projective points `point` and `other` as
     ///      projective point.
     ///
-    /// @dev Uses algorithm 7 from [Renes-Costello-Batina 2015] based on a
-    ///      complete addition formula for Weierstrass curves with a = 0.
+    /// @dev Uses algorithm 1 from [Renes-Costello-Batina 2015] based on a
+    ///      complete addition formula for arbitrary prime order short
+    ///      Weierstrass curves.
     function add(ProjectivePoint memory point, ProjectivePoint memory other)
         internal
         pure
@@ -264,43 +240,57 @@ library Secp256k1Arithmetic {
         // - B3 = mulmod(B, 3, P)
 
         // Variables:
-        uint t0; uint t1; uint t2; uint t3; uint t4;
+        __addTempVars memory tmp = __addTempVars({
+            t0: 0,
+            t1: 0,
+            t2: 0,
+            t3: 0,
+            t4: 0,
+            t5: 0
+        });
 
         // Computations:
         // Note that x - y = x + (P - y) (mod P)
-        t0 = mulmod(x1, x2, P);
-        t1 = mulmod(y1, y2, P);
-        t2 = mulmod(z1, z2, P);
-        t3 = addmod(x1, y1, P);
-        t4 = addmod(x2, y2, P);
-        t3 = mulmod(t3, t4, P);
-        t4 = addmod(t0, t1, P);
-        unchecked { t3 = addmod(t3, P - t4, P); }
-        t4 = addmod(y1, z1, P);
+        tmp.t0 = mulmod(x1, x2, P);
+        tmp.t1 = mulmod(y1, y2, P);
+        tmp.t2 = mulmod(z1, z2, P);
+        tmp.t3 = addmod(x1, y1, P);
+        tmp.t4 = addmod(x2, y2, P);
+        tmp.t3 = mulmod(tmp.t3, tmp.t4, P);
+        tmp.t4 = addmod(tmp.t0, tmp.t1, P);
+        unchecked { tmp.t3 = addmod(tmp.t3, P - tmp.t4, P); }
+        tmp.t4 = addmod(x1, z1, P);
+        tmp.t5 = addmod(x2, z2, P);
+        tmp.t4 = mulmod(tmp.t4, tmp.t5, P);
+        tmp.t5 = addmod(tmp.t0, tmp.t2, P);
+        unchecked { tmp.t4 = addmod(tmp.t4, P - tmp.t5, P); }
+        tmp.t5 = addmod(y1, z1, P);
         x3 = addmod(y2, z2, P);
-        t4 = mulmod(t4, x3, P);
-        x3 = addmod(t1, t2, P);
-        unchecked { t4 = addmod(t4, P - x3, P); }
-        x3 = addmod(x1, z1, P);
-        y3 = addmod(x2, z2, P);
-        x3 = mulmod(x3, y3, P);
-        y3 = addmod(t0, t2, P);
-        unchecked { y3 = addmod(x3, P - y3, P); }
-        x3 = addmod(t0, t0, P);
-        t0 = addmod(x3, t0, P);
-        t2 = mulmod(B3, t2, P);
-        z3 = addmod(t1, t2, P);
-        unchecked { t1 = addmod(t1, P - t2, P); }
-        y3 = mulmod(B3, y3, P);
-        x3 = mulmod(t4, y3, P);
-        t2 = mulmod(t3, t1, P);
-        unchecked { x3 = addmod(t2, P - x3, P); }
-        y3 = mulmod(y3, t0, P);
-        t1 = mulmod(t1, z3, P);
-        y3 = addmod(t1, y3, P);
-        t0 = mulmod(t0, t3, P);
-        z3 = mulmod(z3, t4, P);
-        z3 = addmod(z3, t0, P);
+        tmp.t5 = mulmod(tmp.t5, x3, P);
+        x3 = addmod(tmp.t1, tmp.t2, P);
+        unchecked { tmp.t5 = addmod(tmp.t5, P - x3, P); }
+        z3 = mulmod(A, tmp.t4, P);
+        x3 = mulmod(B3, tmp.t2, P);
+        z3 = addmod(x3, z3, P);
+        unchecked { x3 = addmod(tmp.t1, P - z3, P); }
+        z3 = addmod(tmp.t1, z3, P);
+        y3 = mulmod(x3, z3, P);
+        tmp.t1 = addmod(tmp.t0, tmp.t0, P);
+        tmp.t1 = addmod(tmp.t1, tmp.t0, P);
+        tmp.t2 = mulmod(A, tmp.t2, P);
+        tmp.t4 = mulmod(B3, tmp.t4, P);
+        tmp.t1 = addmod(tmp.t1, tmp.t2, P);
+        unchecked { tmp.t2 = addmod(tmp.t0, P - tmp.t2, P); }
+        tmp.t2 = mulmod(A, tmp.t2, P);
+        tmp.t4 = addmod(tmp.t4, tmp.t2, P);
+        tmp.t0 = mulmod(tmp.t1, tmp.t4, P);
+        y3 = addmod(y3, tmp.t0, P);
+        tmp.t0 = mulmod(tmp.t5, tmp.t4, P);
+        x3 = mulmod(tmp.t3, x3, P);
+        unchecked { x3 = addmod(x3, P - tmp.t0, P); }
+        tmp.t0 = mulmod(tmp.t3, tmp.t1, P);
+        z3 = mulmod(tmp.t5, z3, P);
+        z3 = addmod(z3, tmp.t0, P);
         // forgefmt: disable-end
 
         return ProjectivePoint(x3, y3, z3);
@@ -565,16 +555,14 @@ library Secp256k1Arithmetic {
 
         // Revert if identity not 1 byte encoded.
         // TODO: Should have own error for identity not 1 byte encoded?
-        //
-        // Note that identity is explicitly enforced to be 1 byte encoded,
-        // eventhough for x = 0 the resulting point is not on the curve anyway.
         if (x == 0) {
             revert("PointNotOnCurve()");
         }
 
         // Compute α = x³ + ax + b (mod p).
-        // Note that adding a * x can be waived as ∀x: a * x = 0.
-        uint alpha = addmod(mulmod(x, mulmod(x, x, P), P), B, P);
+        uint alpha = addmod(
+            addmod(mulmod(x, mulmod(x, x, P), P), mulmod(A, x, P), P), B, P
+        );
 
         // Compute β = √α              (mod p)
         //           = α^{(p + 1) / 4} (mod p)

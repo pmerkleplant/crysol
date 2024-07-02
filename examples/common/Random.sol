@@ -19,10 +19,7 @@ contract RandomExample is Script {
     function run() public {
         // Create random uint.
         uint rand = RandomOffchain.readUint();
-        console.log("Random uint: ", rand);
-
-        // Bound to smaller type via discarding higher-order bits.
-        uint8 randByte = uint8(rand);
-        console.log("Random byte: ", randByte);
+        console.log("Cryptographically secure random uint256: ", rand);
+        console.log("");
     }
 }

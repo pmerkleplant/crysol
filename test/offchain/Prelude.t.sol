@@ -29,8 +29,6 @@ contract PreludeTest is Test {
         vm.assume(chainId != 31337);
 
         // Note that foundry expects chainId to be less than 2^64 - 1.
-        // TODO(mp): Check whether such EIP exists.
-        //           Until then use try-catch to keep test universal.
         try vm.chainId(chainId) {
             vm.expectRevert();
             vmedFunction();

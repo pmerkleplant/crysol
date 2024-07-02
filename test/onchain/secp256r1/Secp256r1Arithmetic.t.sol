@@ -4,46 +4,46 @@ pragma solidity ^0.8.16;
 import {Test} from "forge-std/Test.sol";
 import {console2 as console} from "forge-std/console2.sol";
 
-import {Secp256k1Offchain} from "src/offchain/secp256k1/Secp256k1Offchain.sol";
+import {Secp256r1Offchain} from "src/offchain/secp256r1/Secp256r1Offchain.sol";
 import {
-    Secp256k1,
+    Secp256r1,
     SecretKey,
     PublicKey
-} from "src/onchain/secp256k1/Secp256k1.sol";
+} from "src/onchain/secp256r1/Secp256r1.sol";
 import {
-    Secp256k1Arithmetic,
+    Secp256r1Arithmetic,
     Point,
     ProjectivePoint
-} from "src/onchain/secp256k1/Secp256k1Arithmetic.sol";
+} from "src/onchain/secp256r1/Secp256r1Arithmetic.sol";
 
-import {Secp256k1ArithmeticTestVectors} from
-    "./test-vectors/Secp256k1ArithmeticTestVectors.sol";
+import {Secp256r1ArithmeticTestVectors} from
+    "./test-vectors/Secp256r1ArithmeticTestVectors.sol";
 
 /**
- * @notice Secp256k1Arithmetic Unit Tests
+ * @notice Secp256r1Arithmetic Unit Tests
  */
-contract Secp256k1ArithmeticTest is Test {
-    using Secp256k1Offchain for SecretKey;
-    using Secp256k1 for SecretKey;
-    using Secp256k1 for PublicKey;
-    using Secp256k1 for Point;
-    using Secp256k1Arithmetic for Point;
-    using Secp256k1Arithmetic for ProjectivePoint;
+contract Secp256r1ArithmeticTest is Test {
+    using Secp256r1Offchain for SecretKey;
+    using Secp256r1 for SecretKey;
+    using Secp256r1 for PublicKey;
+    using Secp256r1 for Point;
+    using Secp256r1Arithmetic for Point;
+    using Secp256r1Arithmetic for ProjectivePoint;
 
     // Uncompressed Generator G.
     // Copied from [SEC-2 v2].
     bytes constant GENERATOR_ENCODED =
-        hex"0479BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8";
+        hex"046B17D1F2E12C4247F8BCE6E563A440F277037D812DEB33A0F4A13945D898C2964FE342E2FE1A7F9B8EE7EB4A7C0F9E162BCE33576B315ECECBB6406837BF51F5";
 
     // Compressed Generator G.
     // Copied from [SEC-2 v2].
     bytes constant GENERATOR_COMPRESSED_ENCODED =
-        hex"0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798";
+        hex"036B17D1F2E12C4247F8BCE6E563A440F277037D812DEB33A0F4A13945D898C296";
 
-    Secp256k1ArithmeticWrapper wrapper;
+    Secp256r1ArithmeticWrapper wrapper;
 
     function setUp() public {
-        wrapper = new Secp256k1ArithmeticWrapper();
+        wrapper = new Secp256r1ArithmeticWrapper();
     }
 
     //--------------------------------------------------------------------------
@@ -52,7 +52,7 @@ contract Secp256k1ArithmeticTest is Test {
     function test_G() public {
         Point memory got = wrapper.G();
         Point memory want =
-            Secp256k1Arithmetic.pointFromEncoded(GENERATOR_ENCODED);
+            Secp256r1Arithmetic.pointFromEncoded(GENERATOR_ENCODED);
 
         assertEq(got.x, want.x);
         assertEq(got.y, want.y);
@@ -88,7 +88,7 @@ contract Secp256k1ArithmeticTest is Test {
     }
 
     function test_Point_isOnCurve_Identity() public {
-        assertTrue(wrapper.isOnCurve(Secp256k1Arithmetic.Identity()));
+        assertTrue(wrapper.isOnCurve(Secp256r1Arithmetic.Identity()));
     }
 
     function testFuzz_Point_isOnCurve_FailsIf_NotOnCurve(
@@ -134,46 +134,6 @@ contract Secp256k1ArithmeticTest is Test {
         }
     }
 
-    // -- mulToAddress
-
-    function testFuzz_Point_mulToAddress(SecretKey sk, uint scalarSeed)
-        public
-    {
-        vm.assume(sk.isValid());
-
-        Point memory point = sk.toPublicKey().intoPoint();
-        uint scalar = _bound(scalarSeed, 1, Secp256k1Arithmetic.Q - 1);
-
-        address got = wrapper.mulToAddress(point, scalar);
-        // forgefmt: disable-next-item
-        address want = point.toProjectivePoint()
-                            .mul(scalar)
-                            .intoPoint()
-                            .intoPublicKey()
-                            .toAddress();
-
-        assertEq(got, want);
-    }
-
-    function testFuzz_Point_mulToAddress_ReturnsIdentityIfScalarIsZero(
-        Point memory point
-    ) public {
-        assertEq(
-            wrapper.mulToAddress(point, 0),
-            Secp256k1Arithmetic.Identity().intoPublicKey().toAddress()
-        );
-    }
-
-    function testFuzz_Point_mulToAddress_RevertsIf_ScalarNotFelt(
-        Point memory point,
-        uint scalar
-    ) public {
-        vm.assume(scalar >= Secp256k1Arithmetic.Q);
-
-        vm.expectRevert("ScalarMustBeFelt()");
-        wrapper.mulToAddress(point, scalar);
-    }
-
     //--------------------------------------------------------------------------
     // Test: Projective Point
 
@@ -205,28 +165,29 @@ contract Secp256k1ArithmeticTest is Test {
 
         // Compute secret key sum = sk1 + sk2 (mod Q).
         // Assume valid secret key.
-        uint sumScalar = addmod(sk1.asUint(), sk2.asUint(), Secp256k1.Q);
+        uint sumScalar = addmod(sk1.asUint(), sk2.asUint(), Secp256r1.Q);
         vm.assume(sumScalar != 0);
-        SecretKey sum = Secp256k1.secretKeyFromUint(sumScalar);
+        console.log("sumScalar", sumScalar);
+        SecretKey sum = Secp256r1.secretKeyFromUint(sumScalar);
 
         // Compute want = [sum]G.
         Point memory want = sum.toPublicKey().intoPoint();
 
         // Compute got = [sk1]G + [sk2]G.
         ProjectivePoint memory left =
-            Secp256k1.G().toProjectivePoint().mul(sk1.asUint());
+            Secp256r1.G().toProjectivePoint().mul(sk1.asUint());
         ProjectivePoint memory right =
-            Secp256k1.G().toProjectivePoint().mul(sk2.asUint());
+            Secp256r1.G().toProjectivePoint().mul(sk2.asUint());
         Point memory got = left.add(right).intoPoint();
 
         assertTrue(want.eq(got));
     }
 
     function testVectors_ProjectivePoint_add() public {
-        ProjectivePoint memory g = Secp256k1Arithmetic.G().toProjectivePoint();
-        ProjectivePoint memory p = Secp256k1Arithmetic.ProjectiveIdentity();
+        ProjectivePoint memory g = Secp256r1Arithmetic.G().toProjectivePoint();
+        ProjectivePoint memory p = Secp256r1Arithmetic.ProjectiveIdentity();
 
-        Point[] memory vectors = Secp256k1ArithmeticTestVectors.addVectors();
+        Point[] memory vectors = Secp256r1ArithmeticTestVectors.addVectors();
 
         for (uint i; i < vectors.length; i++) {
             p = wrapper.add(p, g);
@@ -236,22 +197,22 @@ contract Secp256k1ArithmeticTest is Test {
     }
 
     function test_ProjectivePoint_add_Identity() public {
-        ProjectivePoint memory g = Secp256k1Arithmetic.G().toProjectivePoint();
-        ProjectivePoint memory id = Secp256k1Arithmetic.ProjectiveIdentity();
+        ProjectivePoint memory g = Secp256r1Arithmetic.G().toProjectivePoint();
+        ProjectivePoint memory id = Secp256r1Arithmetic.ProjectiveIdentity();
         Point memory got;
 
         // Test id + g.
         got = wrapper.add(id, g).intoPoint();
-        assertTrue(got.eq(Secp256k1Arithmetic.G()));
+        assertTrue(got.eq(Secp256r1Arithmetic.G()));
         // Test g + id.
         got = wrapper.add(g, id).intoPoint();
-        assertTrue(got.eq(Secp256k1Arithmetic.G()));
+        assertTrue(got.eq(Secp256r1Arithmetic.G()));
     }
 
     function test_ProjectivePoint_add_UpToIdentity() public {
         // Note that 1 + Q-1 = Q and [Q]G = Identity().
-        SecretKey sk1 = Secp256k1.secretKeyFromUint(1);
-        SecretKey sk2 = Secp256k1.secretKeyFromUint(Secp256k1.Q - 1);
+        SecretKey sk1 = Secp256r1.secretKeyFromUint(1);
+        SecretKey sk2 = Secp256r1.secretKeyFromUint(Secp256r1.Q - 1);
 
         ProjectivePoint memory p1 = sk1.toPublicKey().toProjectivePoint();
         ProjectivePoint memory p2 = sk2.toPublicKey().toProjectivePoint();
@@ -264,10 +225,11 @@ contract Secp256k1ArithmeticTest is Test {
 
     // -- mul
 
+    // TODO: secp256r1 mul() test useless if offchain not using vm.
     function testFuzz_ProjectivePoint_mul(SecretKey sk) public {
         vm.assume(sk.isValid());
 
-        ProjectivePoint memory g = Secp256k1Arithmetic.G().toProjectivePoint();
+        ProjectivePoint memory g = Secp256r1Arithmetic.G().toProjectivePoint();
 
         Point memory got = wrapper.mul(g, sk.asUint()).intoPoint();
         Point memory want = sk.toPublicKey().intoPoint();
@@ -276,11 +238,11 @@ contract Secp256k1ArithmeticTest is Test {
     }
 
     function testVectors_ProjectivePoint_mul() public {
-        ProjectivePoint memory g = Secp256k1Arithmetic.G().toProjectivePoint();
+        ProjectivePoint memory g = Secp256r1Arithmetic.G().toProjectivePoint();
 
         uint[] memory scalars;
         Point[] memory products;
-        (scalars, products) = Secp256k1ArithmeticTestVectors.mulVectors();
+        (scalars, products) = Secp256r1ArithmeticTestVectors.mulVectors();
 
         for (uint i; i < scalars.length; i++) {
             Point memory p = wrapper.mul(g, scalars[i]).intoPoint();
@@ -300,7 +262,7 @@ contract Secp256k1ArithmeticTest is Test {
     ) public {
         vm.assume(sk.isValid());
 
-        ProjectivePoint memory id = Secp256k1Arithmetic.ProjectiveIdentity();
+        ProjectivePoint memory id = Secp256r1Arithmetic.ProjectiveIdentity();
         assertTrue(wrapper.mul(id, sk.asUint()).isIdentity());
     }
 
@@ -308,7 +270,7 @@ contract Secp256k1ArithmeticTest is Test {
         ProjectivePoint memory point,
         uint scalar
     ) public {
-        vm.assume(scalar >= Secp256k1Arithmetic.Q);
+        vm.assume(scalar >= Secp256r1Arithmetic.Q);
 
         vm.expectRevert("ScalarMustBeFelt()");
         wrapper.mul(point, scalar);
@@ -332,7 +294,7 @@ contract Secp256k1ArithmeticTest is Test {
     }
 
     function test_Point_toProjectivePoint_Identity() public {
-        Point memory identity = Secp256k1Arithmetic.Identity();
+        Point memory identity = Secp256r1Arithmetic.Identity();
 
         assertTrue(wrapper.toProjectivePoint(identity).isIdentity());
     }
@@ -353,9 +315,9 @@ contract Secp256k1ArithmeticTest is Test {
         // two random points via ProjectivePoint::add().
 
         // Compute [a+b]G.
-        uint scalar = addmod(a.asUint(), b.asUint(), Secp256k1.Q);
+        uint scalar = addmod(a.asUint(), b.asUint(), Secp256r1.Q);
         Point memory want =
-            Secp256k1.secretKeyFromUint(scalar).toPublicKey().intoPoint();
+            Secp256r1.secretKeyFromUint(scalar).toPublicKey().intoPoint();
 
         // Compute [a]G + [b]G via ProjectivePoints.
         // forgefmt: disable-next-item
@@ -369,7 +331,7 @@ contract Secp256k1ArithmeticTest is Test {
 
     function test_ProjectivePoint_intoPoint_Identity() public {
         ProjectivePoint memory identity =
-            Secp256k1Arithmetic.ProjectiveIdentity();
+            Secp256r1Arithmetic.ProjectiveIdentity();
 
         assertTrue(wrapper.intoPoint(identity).isIdentity());
     }
@@ -384,9 +346,9 @@ contract Secp256k1ArithmeticTest is Test {
         // two random points via ProjectivePoint::add().
 
         // Compute [a+b]G.
-        uint scalar = addmod(a.asUint(), b.asUint(), Secp256k1.Q);
+        uint scalar = addmod(a.asUint(), b.asUint(), Secp256r1.Q);
         Point memory want =
-            Secp256k1.secretKeyFromUint(scalar).toPublicKey().intoPoint();
+            Secp256r1.secretKeyFromUint(scalar).toPublicKey().intoPoint();
 
         // Compute [a]G + [b]G via ProjectivePoints.
         // forgefmt: disable-next-item
@@ -400,7 +362,7 @@ contract Secp256k1ArithmeticTest is Test {
 
     function test_ProjectivePoint_toPoint_Identity() public {
         ProjectivePoint memory identity =
-            Secp256k1Arithmetic.ProjectiveIdentity();
+            Secp256r1Arithmetic.ProjectiveIdentity();
 
         assertTrue(wrapper.toPoint(identity).isIdentity());
     }
@@ -417,20 +379,20 @@ contract Secp256k1ArithmeticTest is Test {
         // Generator.
         blob = GENERATOR_ENCODED;
         point = wrapper.pointFromEncoded(blob);
-        assertTrue(point.eq(Secp256k1Arithmetic.G()));
+        assertTrue(point.eq(Secp256r1Arithmetic.G()));
 
         // Some other point, ie [2]G.
         blob =
-            hex"04C6047F9441ED7D6D3045406E95C07CD85C778E4B8CEF3CA7ABAC09B95C709EE51AE168FEA63DC339A3C58419466CEAEEF7F632653266D0E1236431A950CFE52A";
+            hex"047CF27B188D034F7E8A52380304B51AC3C08969E277F21B35A60B48FC4766997807775510DB8ED040293D9AC69F7430DBBA7DADE63CE982299E04B79D227873D1";
         point = wrapper.pointFromEncoded(blob);
         assertTrue(
             point.eq(
                 Point({
                     x: uint(
-                        0xC6047F9441ED7D6D3045406E95C07CD85C778E4B8CEF3CA7ABAC09B95C709EE5
+                        0x7CF27B188D034F7E8A52380304B51AC3C08969E277F21B35A60B48FC47669978
                     ),
                     y: uint(
-                        0x1AE168FEA63DC339A3C58419466CEAEEF7F632653266D0E1236431A950CFE52A
+                        0x07775510DB8ED040293D9AC69F7430DBBA7DADE63CE982299E04B79D227873D1
                     )
                 })
             )
@@ -483,28 +445,28 @@ contract Secp256k1ArithmeticTest is Test {
         bytes memory blob;
 
         // Generator.
-        point = Secp256k1Arithmetic.G();
+        point = Secp256r1Arithmetic.G();
         blob = wrapper.toEncoded(point);
         assertEq(blob, GENERATOR_ENCODED);
 
         // Some other point, ie [2]G.
         point = Point({
             x: uint(
-                0xC6047F9441ED7D6D3045406E95C07CD85C778E4B8CEF3CA7ABAC09B95C709EE5
+                0x7CF27B188D034F7E8A52380304B51AC3C08969E277F21B35A60B48FC47669978
             ),
             y: uint(
-                0x1AE168FEA63DC339A3C58419466CEAEEF7F632653266D0E1236431A950CFE52A
+                0x07775510DB8ED040293D9AC69F7430DBBA7DADE63CE982299E04B79D227873D1
             )
         });
         blob = wrapper.toEncoded(point);
         assertEq(
             blob,
-            hex"04C6047F9441ED7D6D3045406E95C07CD85C778E4B8CEF3CA7ABAC09B95C709EE51AE168FEA63DC339A3C58419466CEAEEF7F632653266D0E1236431A950CFE52A"
+            hex"047CF27B188D034F7E8A52380304B51AC3C08969E277F21B35A60B48FC4766997807775510DB8ED040293D9AC69F7430DBBA7DADE63CE982299E04B79D227873D1"
         );
     }
 
     function test_Point_toEncoded_Identity() public {
-        Point memory point = Secp256k1Arithmetic.Identity();
+        Point memory point = Secp256r1Arithmetic.Identity();
         bytes memory blob = wrapper.toEncoded(point);
 
         assertEq(blob, hex"00");
@@ -528,11 +490,11 @@ contract Secp256k1ArithmeticTest is Test {
         // Generator.
         blob = GENERATOR_COMPRESSED_ENCODED;
         point = wrapper.pointFromCompressedEncoded(blob);
-        assertTrue(point.eq(Secp256k1Arithmetic.G()));
+        assertTrue(point.eq(Secp256r1Arithmetic.G()));
     }
 
     function test_Point_pointFromCompressedEncoded_IfyParityEven() public {
-        SecretKey sk = Secp256k1.secretKeyFromUint(2);
+        SecretKey sk = Secp256r1.secretKeyFromUint(4);
         Point memory point = sk.toPublicKey().intoPoint();
         assert(point.yParity() == 0);
 
@@ -542,7 +504,7 @@ contract Secp256k1ArithmeticTest is Test {
     }
 
     function test_Point_pointFromCompressedEncoded_IfyParityOdd() public {
-        SecretKey sk = Secp256k1.secretKeyFromUint(6);
+        SecretKey sk = Secp256r1.secretKeyFromUint(2);
         Point memory point = sk.toPublicKey().intoPoint();
         assert(point.yParity() == 1);
 
@@ -552,7 +514,7 @@ contract Secp256k1ArithmeticTest is Test {
     }
 
     function test_Point_pointFromCompressedEncoded_Identity() public {
-        Point memory id = Secp256k1Arithmetic.Identity();
+        Point memory id = Secp256r1Arithmetic.Identity();
 
         Point memory got =
             wrapper.pointFromCompressedEncoded(id.toCompressedEncoded());
@@ -601,48 +563,48 @@ contract Secp256k1ArithmeticTest is Test {
         Point memory point
     ) public {
         vm.skip(true);
-        // TODO: Find secp256k1 x coordinates not on the curve for compressed
+        // TODO: Find secp256r1 x coordinates not on the curve for compressed
         //       byte encoding.
     }
 
     function test_Point_toCompressedEncoded_IfyParityEven() public {
-        // Some point, ie [2]G.
+        // Some point, ie [6]G.
         Point memory point = Point({
             x: uint(
-                0xC6047F9441ED7D6D3045406E95C07CD85C778E4B8CEF3CA7ABAC09B95C709EE5
+                0xB01A172A76A4602C92D3242CB897DDE3024C740DEBB215B4C6B0AAE93C2291A9
             ),
             y: uint(
-                0x1AE168FEA63DC339A3C58419466CEAEEF7F632653266D0E1236431A950CFE52A
+                0xE85C10743237DAD56FEC0E2DFBA703791C00F7701C7E16BDFD7C48538FC77FE2
             )
         });
         bytes memory blob = wrapper.toCompressedEncoded(point);
 
         assertEq(
             blob,
-            hex"02C6047F9441ED7D6D3045406E95C07CD85C778E4B8CEF3CA7ABAC09B95C709EE5"
+            hex"02B01A172A76A4602C92D3242CB897DDE3024C740DEBB215B4C6B0AAE93C2291A9"
         );
     }
 
     function test_Point_toCompressedEncoded_IfyParityOdd() public {
-        // Some point, ie [6]G.
+        // Some point, ie [2]G.
         Point memory point = Point({
             x: uint(
-                0xFFF97BD5755EEEA420453A14355235D382F6472F8568A18B2F057A1460297556
+                0x7CF27B188D034F7E8A52380304B51AC3C08969E277F21B35A60B48FC47669978
             ),
             y: uint(
-                0xAE12777AACFBB620F3BE96017F45C560DE80F0F6518FE4A03C870C36B075F297
+                0x07775510DB8ED040293D9AC69F7430DBBA7DADE63CE982299E04B79D227873D1
             )
         });
         bytes memory blob = wrapper.toCompressedEncoded(point);
 
         assertEq(
             blob,
-            hex"03FFF97BD5755EEEA420453A14355235D382F6472F8568A18B2F057A1460297556"
+            hex"037CF27B188D034F7E8A52380304B51AC3C08969E277F21B35A60B48FC47669978"
         );
     }
 
     function test_Point_toCompressedEncoded_Identity() public {
-        Point memory point = Secp256k1Arithmetic.Identity();
+        Point memory point = Secp256r1Arithmetic.Identity();
         bytes memory blob = wrapper.toCompressedEncoded(point);
 
         assertEq(blob, hex"00");
@@ -663,22 +625,22 @@ contract Secp256k1ArithmeticTest is Test {
  *
  * @dev For more info, see https://github.com/foundry-rs/foundry/pull/3128#issuecomment-1241245086.
  */
-contract Secp256k1ArithmeticWrapper {
-    using Secp256k1Arithmetic for Point;
-    using Secp256k1Arithmetic for ProjectivePoint;
+contract Secp256r1ArithmeticWrapper {
+    using Secp256r1Arithmetic for Point;
+    using Secp256r1Arithmetic for ProjectivePoint;
 
     //--------------------------------------------------------------------------
     // Constants
 
     function G() public pure returns (Point memory) {
-        return Secp256k1Arithmetic.G();
+        return Secp256r1Arithmetic.G();
     }
 
     //--------------------------------------------------------------------------
     // Point
 
     function Identity() public pure returns (Point memory) {
-        return Secp256k1Arithmetic.Identity();
+        return Secp256r1Arithmetic.Identity();
     }
 
     function isIdentity(Point memory point) public pure returns (bool) {
@@ -709,7 +671,7 @@ contract Secp256k1ArithmeticWrapper {
         pure
         returns (ProjectivePoint memory)
     {
-        return Secp256k1Arithmetic.ProjectiveIdentity();
+        return Secp256r1Arithmetic.ProjectiveIdentity();
     }
 
     function isIdentity(ProjectivePoint memory point)
@@ -734,14 +696,6 @@ contract Secp256k1ArithmeticWrapper {
         returns (ProjectivePoint memory)
     {
         return point.mul(scalar);
-    }
-
-    function mulToAddress(Point memory point, uint scalar)
-        public
-        pure
-        returns (address)
-    {
-        return point.mulToAddress(scalar);
     }
 
     //--------------------------------------------------------------------------
@@ -785,7 +739,7 @@ contract Secp256k1ArithmeticWrapper {
         pure
         returns (Point memory)
     {
-        return Secp256k1Arithmetic.pointFromEncoded(blob);
+        return Secp256r1Arithmetic.pointFromEncoded(blob);
     }
 
     function toEncoded(Point memory point) public pure returns (bytes memory) {
@@ -797,7 +751,7 @@ contract Secp256k1ArithmeticWrapper {
         view
         returns (Point memory)
     {
-        return Secp256k1Arithmetic.pointFromCompressedEncoded(blob);
+        return Secp256r1Arithmetic.pointFromCompressedEncoded(blob);
     }
 
     function toCompressedEncoded(Point memory point)
